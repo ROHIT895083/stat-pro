@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI, UploadFile, File, HTTPException
 import os
 import shutil
 import pandas as pd
@@ -14,47 +14,71 @@ UPLOAD_DIR = "data/uploads"
 # -------------------------
 @app.post("/upload")
 async def upload_file(file: UploadFile = File(...)):
-    # Ensure upload directory exists
-    os.makedirs(UPLOAD_DIR, exist_ok=True)
+    try:
+        # Ensure upload directory exists
+        os.makedirs(UPLOAD_DIR, exist_ok=True)
 
-    file_path = os.path.join(UPLOAD_DIR, file.filename)
+        # Validate file type
+        if not file.filename.endswith(".csv"):
+            raise HTTPException(status_code=400, detail="Only CSV files are allowed")
 
-    # Save uploaded file
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+        file_path = os.path.join(UPLOAD_DIR, file.filename)
 
-    return {
-        "message": "File uploaded successfully",
-        "filename": file.filename
-    }
+        # Save uploaded file
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+
+        return {
+            "message": "File uploaded successfully",
+            "filename": file.filename
+        }
+
+    except HTTPException as e:
+        raise e
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"File upload failed: {str(e)}"
+        )
 
 
 # -------------------------
 # GET: Query CSV file
 # -------------------------
 @app.get("/query")
-def query_file(filename: str, column: str, value: str):
-    file_path = os.path.join(UPLOAD_DIR, filename)
+def query_file(filename: str, name: str):
+    try:
+        file_path = os.path.join(UPLOAD_DIR, filename)
 
-    # Check file exists
-    if not os.path.exists(file_path):
-        return {"error": "File not found"}
+        if not os.path.exists(file_path):
+            raise HTTPException(status_code=404, detail="File not found")
 
-    # Read CSV
-    df = pd.read_csv(file_path)
+        df = pd.read_csv(file_path)
 
-    # Check column exists
-    if column not in df.columns:
+        # Create Full Name column
+        df["Full Name"] = df["First Name"] + " " + df["Last Name"]
+
+        # Search by full name
+        result = df[df["Full Name"].str.contains(name, case=False, na=False)]
+
         return {
-            "error": f"Column '{column}' not found",
-            "available_columns": list(df.columns)
+            "filename": filename,
+            "total_rows": len(result),
+            "results": result.to_dict(orient="records")
         }
 
-    # Filter rows
-    result = df[df[column].astype(str) == value]
+    except HTTPException as e:
+        raise e
 
-    return {
-        "filename": filename,
-        "total_rows": len(result),
-        "results": result.to_dict(orient="records")
-    }
+    except pd.errors.EmptyDataError:
+        raise HTTPException(status_code=400, detail="CSV file is empty")
+
+    except pd.errors.ParserError:
+        raise HTTPException(status_code=400, detail="Error parsing CSV file")
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Query processing failed: {str(e)}"
+        )
