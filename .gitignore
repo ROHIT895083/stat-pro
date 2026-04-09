@@ -1,0 +1,13 @@
+# Security
+.env
+
+# Virtual Environments
+.venv/
+env/
+__pycache__/
+
+# Ignore user uploaded data but keep the folders
+data/uploads/*
+!data/uploads/.gitkeep
+data/charts/*
+!data/charts/.gitkeep
