@@ -1,13 +1,14 @@
-# Security
-.env
-
-# Virtual Environments
+# Environments
 .venv/
-env/
 __pycache__/
 
-# Ignore user uploaded data but keep the folders
-data/uploads/*
-!data/uploads/.gitkeep
-data/charts/*
-!data/charts/.gitkeep
+# Environment Variables (PROTECT YOUR API KEYS!)
+.env
+
+# Data and Uploads
+data/uploads/
+data/charts/
+*.csv
+
+# Mac/OS hidden files (just in case)
+.DS_Store

@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StatBot Pro | AI Data Analyst</title>
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #0f172a; color: #f8fafc; display: flex; justify-content: center; padding: 50px; margin: 0; }
+        .card { background: #1e293b; padding: 40px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.3); width: 100%; max-width: 800px; border: 1px solid #334155; }
+        h1 { color: #38bdf8; margin-bottom: 10px; font-size: 28px; }
+        .subtitle { color: #94a3b8; margin-bottom: 30px; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; }
+        label { font-size: 14px; font-weight: 600; color: #cbd5e1; }
+        input[type="file"], input[type="text"] { width: 100%; padding: 12px; margin-top: 8px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: white; box-sizing: border-box; font-size: 15px; }
+        input[type="text"]:focus { outline: none; border-color: #38bdf8; }
+        button { width: 100%; background: #38bdf8; color: #0f172a; font-size: 16px; font-weight: bold; border: none; padding: 14px; border-radius: 8px; cursor: pointer; margin-top: 25px; transition: 0.3s; box-shadow: 0 4px 10px rgba(56, 189, 248, 0.2); }
+        button:hover { background: #0ea5e9; transform: translateY(-2px); }
+        .output { margin-top: 35px; padding: 25px; background: #000; border-radius: 8px; min-height: 120px; color: #10b981; font-family: 'Courier New', monospace; white-space: pre-wrap; border: 1px solid #10b981; overflow-x: auto; line-height: 1.5; }
+        #loader { display: none; color: #38bdf8; font-size: 14px; margin-bottom: 10px; font-style: italic; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>StatBot Pro</h1>
+        <p class="subtitle">Enterprise CSV Intelligence Agent</p>
+        
+        <div>
+            <label>1. Upload Dataset (CSV)</label>
+            <input type="file" id="csv" accept=".csv">
+        </div>
+        
+        <div style="margin-top:25px;">
+            <label>2. Ask your question</label>
+            <input type="text" id="query" placeholder="e.g. Generate a bar chart showing the top 5 countries.">
+        </div>
+        
+        <button onclick="analyze()">Initialize Agent</button>
+        
+        <div class="output">
+            <div id="loader">> Agent is calculating...</div>
+            <div id="result">Awaiting execution command...</div>
+        </div>
+    </div>
+
+    <script>
+        async function analyze() {
+            const resDiv = document.getElementById('result');
+            const loader = document.getElementById('loader');
+            const fileInput = document.getElementById('csv');
+            const queryInput = document.getElementById('query');
+
+            if (!fileInput.files[0]) { alert("Error: Please upload a CSV file."); return; }
+            if (!queryInput.value) { alert("Error: Please enter a query."); return; }
+
+            // Reset UI for new query
+            resDiv.innerHTML = ""; 
+            loader.style.display = "block";
+
+            const formData = new FormData();
+            formData.append("file", fileInput.files[0]);
+            formData.append("query", queryInput.value);
+
+            try {
+                const response = await fetch('/analyze', { method: 'POST', body: formData });
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let fullText = "";
+
+                while (true) {
+                    const { value, done } = await reader.read();
+                    if (done) break;
+                    
+                    // Hide loader once we start getting data
+                    loader.style.display = "none";
+                    
+                    const chunk = decoder.decode(value);
+                    fullText += chunk;
+
+                    // The Multi-Modal Magic: Check if AI outputted an image
+                    if (fullText.includes("IMAGE_SAVED:")) {
+                        const imgName = fullText.split("IMAGE_SAVED:")[1].trim();
+                        // Timestamp prevents browser caching so new charts load instantly
+                        const timestamp = new Date().getTime();
+                        resDiv.innerHTML = `Graph generated successfully!<br><br><img src="/static/charts/${imgName}?t=${timestamp}" style="max-width:100%; border-radius:8px; border: 1px solid #334155; background: white; padding: 10px;">`;
+                    } else {
+                        // Standard text output
+                        resDiv.innerText = fullText;
+                    }
+                }
+            } catch (err) {
+                loader.style.display = "none";
+                resDiv.innerText = "System fallback activated. Connection error occurred.";
+            }
+        }
+    </script>
+</body>
+</html>
